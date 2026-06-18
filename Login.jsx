@@ -1,78 +1,48 @@
-import React, { useState, useEffect } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import React, { useState } from 'react'
 import { supabase } from '../lib/supabase.js'
-import Layout from '../components/Layout.jsx'
 
-const STATUS_LABEL = { open: 'Em aberto', progress: 'Em andamento', done: 'Arquivado' }
-const STATUS_CLASS = { open: 'pill-open', progress: 'pill-progress', done: 'pill-done' }
+export default function Login() {
+  const [email, setEmail] = useState('')
+  const [senha, setSenha] = useState('')
+  const [erro, setErro] = useState('')
+  const [loading, setLoading] = useState(false)
 
-export default function Dashboard({ perfil }) {
-  const [casos, setCasos] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [params] = useSearchParams()
-  const navigate = useNavigate()
-  const statusFilter = params.get('status')
-
-  useEffect(() => { fetchCasos() }, [statusFilter])
-
-  async function fetchCasos() {
+  async function entrar(e) {
+    e.preventDefault()
+    setErro('')
     setLoading(true)
-    let q = supabase.from('casos').select('*').order('created_at', { ascending: false })
-    if (statusFilter) q = q.eq('status', statusFilter)
-    const { data } = await q
-    setCasos(data || [])
+    const { error } = await supabase.auth.signInWithPassword({ email, password: senha })
+    if (error) setErro('Email ou senha incorretos.')
     setLoading(false)
   }
 
-  const isCoordenacao = perfil?.tipo === 'coordenacao'
-  const title = statusFilter ? STATUS_LABEL[statusFilter] || 'Casos' : 'Todos os casos'
-
   return (
-    <Layout perfil={perfil}>
-      <div style={{ padding: '20px 28px', borderBottom: '0.5px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--bg)' }}>
-        <h1 style={{ fontSize: 16, fontWeight: 600 }}>{title}</h1>
-        {isCoordenacao && (
-          <button className="primary" onClick={() => navigate('/novo')}>
-            <i className="ti ti-plus" aria-hidden="true" /> Novo caso
-          </button>
-        )}
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg3)' }}>
+      <div style={{ width: 360 }}>
+        <div style={{ marginBottom: 28, textAlign: 'center' }}>
+          <div style={{ fontSize: 20, fontWeight: 600, color: 'var(--text)', marginBottom: 4 }}>Talkers Idiomas</div>
+          <div style={{ fontSize: 13, color: 'var(--text2)' }}>Casos Pedagógicos</div>
+        </div>
+        <div className="card" style={{ padding: '24px 28px' }}>
+          <form onSubmit={entrar} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div>
+              <label style={{ display: 'block', fontSize: 12, color: 'var(--text2)', marginBottom: 5 }}>Email</label>
+              <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="seu@email.com" required />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: 12, color: 'var(--text2)', marginBottom: 5 }}>Senha</label>
+              <input type="password" value={senha} onChange={e => setSenha(e.target.value)} placeholder="••••••••" required />
+            </div>
+            {erro && <div style={{ fontSize: 12, color: 'var(--danger)', background: 'var(--danger-bg)', padding: '7px 10px', borderRadius: 'var(--radius)' }}>{erro}</div>}
+            <button type="submit" className="primary" disabled={loading} style={{ marginTop: 4, justifyContent: 'center' }}>
+              {loading ? <><div className="spinner" style={{ width: 14, height: 14, borderWidth: 1.5 }} /> Entrando...</> : 'Entrar'}
+            </button>
+          </form>
+        </div>
+        <div style={{ textAlign: 'center', marginTop: 16, fontSize: 12, color: 'var(--text3)' }}>
+          Acesso restrito à equipe Talkers
+        </div>
       </div>
-
-      <div style={{ padding: '20px 28px' }}>
-        {loading ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: 'var(--text2)' }}>
-            <div className="spinner" /> <span style={{ fontSize: 13 }}>Carregando casos...</span>
-          </div>
-        ) : casos.length === 0 ? (
-          <div style={{ fontSize: 13, color: 'var(--text3)', padding: '20px 0' }}>Nenhum caso encontrado.</div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {casos.map(c => (
-              <div key={c.id} className="card" style={{ cursor: 'pointer' }} onClick={() => navigate(`/caso/${c.id}`)}
-                onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--border2)'}
-                onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border)'}>
-                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 8 }}>
-                  <div style={{ fontSize: 14, fontWeight: 600 }}>{c.nome_aluno}</div>
-                  <span className={`pill ${STATUS_CLASS[c.status]}`}>{STATUS_LABEL[c.status]}</span>
-                </div>
-                <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', fontSize: 12, color: 'var(--text2)' }}>
-                  <span><i className="ti ti-user" style={{ fontSize: 12, marginRight: 3 }} aria-hidden="true" />{c.teacher}</span>
-                  <span><i className="ti ti-books" style={{ fontSize: 12, marginRight: 3 }} aria-hidden="true" />{c.turma}</span>
-                  <span><i className="ti ti-device-mobile" style={{ fontSize: 12, marginRight: 3 }} aria-hidden="true" />{c.modalidade}</span>
-                  <span><i className="ti ti-calendar" style={{ fontSize: 12, marginRight: 3 }} aria-hidden="true" />{new Date(c.created_at).toLocaleDateString('pt-BR')}</span>
-                </div>
-                {c.dificuldades?.length > 0 && (
-                  <div style={{ marginTop: 8, display: 'flex', gap: 5, flexWrap: 'wrap' }}>
-                    {c.dificuldades.map(d => (
-                      <span key={d} style={{ fontSize: 11, padding: '2px 7px', borderRadius: 20, background: 'var(--bg2)', color: 'var(--text2)', border: '0.5px solid var(--border)' }}>{d}</span>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </Layout>
+    </div>
   )
 }
